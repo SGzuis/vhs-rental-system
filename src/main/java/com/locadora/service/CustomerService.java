@@ -39,6 +39,12 @@ public class CustomerService {
         return false;
     }
 
+    public List<Customer> findBlockedCustomers() {
+        return customerRepository.findAll().stream()
+                .filter(customer -> isBlocked(customer.getId()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     public Customer findById(String id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));

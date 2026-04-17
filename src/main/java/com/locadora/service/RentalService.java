@@ -66,6 +66,30 @@ public class RentalService {
         
         return rentals;
     }
+
+    public List<Rental> findActiveRentalsByCustomer(String customerId) {
+        return rentalRepository.findByCustomerIdAndStatus(customerId, RentalStatus.ACTIVE);
+    }
+
+    @Transactional
+    public Rental renewRental(String rentalId, Integer extraDays) {
+        Rental rental = rentalRepository.findById(rentalId)
+            .orElseThrow(() -> new BusinessException("Rental not found"));
+        
+        if (rental.getStatus() != RentalStatus.ACTIVE) {
+            throw new BusinessException("Only active rentals can be renewed");
+        }
+        
+        LocalDate newExpectedDate = rental.getExpectedReturnDate().plusDays(extraDays);
+        rental.setExpectedReturnDate(newExpectedDate);
+        
+        // Atualiza valor total
+        BigDecimal additionalAmount = rental.getDailyRate().multiply(BigDecimal.valueOf(extraDays));
+        rental.setTotalAmount(rental.getTotalAmount().add(additionalAmount));
+        rental.setDaysRented(rental.getDaysRented() + extraDays);
+        
+        return rentalRepository.save(rental);
+    }
     
     @Transactional
     public Rental returnRental(String rentalId, boolean rewound) {

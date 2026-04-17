@@ -14,6 +14,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FineService {
     private final FineRepository fineRepository;
+
+    public Fine create(Fine fine) {
+        fine.setActive(true);
+        return fineRepository.save(fine);
+    }
+
+    public List<Fine> findAll() {
+        return fineRepository.findAll();
+    }
+
+    public List<Fine> findActive() {
+        return fineRepository.findByActiveTrue();
+    }
     
     public BigDecimal calculateLateFine(Rental rental) {
         List<Fine> activeFines = fineRepository.findByActiveTrue();

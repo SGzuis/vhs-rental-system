@@ -28,6 +28,11 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.findById(id));
     }
 
+    @GetMapping("/blocked")
+    public ResponseEntity<List<Customer>> getBlockedCustomers() {
+        return ResponseEntity.ok(customerService.findBlockedCustomers());
+    }
+
     @GetMapping("/{id}/pending")
     public ResponseEntity<java.math.BigDecimal> getPendingAmount(@PathVariable String id) {
         return ResponseEntity.ok(checkoutService.calculatePendingAmount(id));
