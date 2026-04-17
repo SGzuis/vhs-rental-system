@@ -7,6 +7,12 @@ spring:
     username: ${DB_USERNAME:locadora_user}
     password: ${DB_PASSWORD:locadora_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   
   jpa:
     hibernate:
@@ -15,6 +21,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
     show-sql: false
   
   flyway:
@@ -28,13 +38,42 @@ spring:
       database: ${REDIS_DATABASE:0}
       username: ${REDIS_USERNAME:default}
       password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
   
   cache:
     type: redis
     redis:
       time-to-live: 600000
       cache-null-values: false
+
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 10
+    max-connections: 10000
+    accept-count: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
 omdb:
   api:
@@ -47,5 +86,6 @@ jwt:
 
 logging:
   level:
-    com.locadora: DEBUG
-    org.springframework.security: INFO
+    com.locadora: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
