@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: Locadora System API
+  description: API de Gerenciamento para Locadora de Fitas VHS (PDV Interno)
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Servidor Local
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [ADMIN, MANAGER, EMPLOYEE]
+        active:
+          type: boolean
+
+    Customer:
+      type: object
+      required:
+        - name
+        - document
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        document:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        active:
+          type: boolean
+
+    Movie:
+      type: object
+      required:
+        - title
+        - dailyRate
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        imdbId:
+          type: string
+        director:
+          type: string
+        genre:
+          type: string
+        releaseYear:
+          type: integer
+        synopsis:
+          type: string
+        posterUrl:
+          type: string
+        imdbRating:
+          type: number
+          format: double
+        dailyRate:
+          type: number
+        active:
+          type: boolean
+
+    Tape:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Código de barras (Tombo)
+        movie:
+          $ref: '#/components/schemas/Movie'
+        status:
+          type: string
+          enum: [AVAILABLE, RENTED, DAMAGED, LOST]
+
+    Rental:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer:
+          $ref: '#/components/schemas/Customer'
+        tape:
+          $ref: '#/components/schemas/Tape'
+        rentalDate:
+          type: string
+          format: date
+        expectedReturnDate:
+          type: string
+          format: date
+        actualReturnDate:
+          type: string
+          format: date
+        dailyRate:
+          type: number
+        totalAmount:
+          type: number
+        fineAmount:
+          type: number
+        status:
+          type: string
+          enum: [ACTIVE, RETURNED, OVERDUE, LOST]
+        daysLate:
+          type: integer
+        daysRented:
+          type: integer
+        rewound:
+          type: boolean
+
+    Fine:
+      type: object
+      required:
+        - name
+        - fineType
+        - value
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        fineType:
+          type: string
+          enum: [FIXED_AMOUNT, DAILY_PERCENTAGE, FIXED_PERCENTAGE]
+        value:
+          type: number
+        active:
+          type: boolean
+
+    DailyReport:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        totalRentals:
+          type: integer
+        totalReturns:
+          type: integer
+        totalRevenue:
+          type: number
+        totalFinesCollected:
+          type: number
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Autenticação]
+      summary: Registrar um novo operador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: {type: string}
+                email: {type: string}
+                password: {type: string}
+                role: {type: string, enum: [ADMIN, MANAGER, EMPLOYEE]}
+      responses:
+        '200':
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: string}
+
+  /api/v1/auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autenticar operador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: {type: string}
+                password: {type: string}
+      responses:
+        '200':
+          description: Token gerado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: {type: string}
+
+  /api/v1/customers:
+    get:
+      tags: [Clientes]
+      summary: Listar todos os clientes
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Customer'}
+    post:
+      tags: [Clientes]
+      summary: Cadastrar novo cliente
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Customer'}
+      responses:
+        '201':
+          description: Cliente criado
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Customer'}
+
+  /api/v1/customers/blocked:
+    get:
+      tags: [Clientes]
+      summary: Listar clientes bloqueados (inadimplentes)
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Lista de inadimplentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Customer'}
+
+  /api/v1/customers/{id}/pending:
+    get:
+      tags: [Clientes]
+      summary: Consultar valor pendente de um cliente
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Valor total de multas e pendências
+          content:
+            application/json:
+              schema: {type: number}
+
+  /api/v1/movies/import/{imdbId}:
+    post:
+      tags: [Filmes]
+      summary: Importar filme via OMDb API
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: imdbId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '201':
+          description: Filme importado com sucesso
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Movie'}
+
+  /api/v1/tapes:
+    post:
+      tags: [Fitas]
+      summary: Cadastrar nova fita física (Tombo)
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: movieId
+          in: query
+          required: true
+          schema: {type: string}
+        - name: tapeId
+          in: query
+          required: true
+          schema: {type: string, description: "Código de barras da fita"}
+      responses:
+        '201':
+          description: Fita cadastrada
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Tape'}
+
+  /api/v1/rentals:
+    post:
+      tags: [Locações]
+      summary: Realizar locação de uma ou mais fitas
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          schema: {type: string}
+        - name: tapeIds
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema: {type: array, items: {type: string}}
+        - name: days
+          in: query
+          required: true
+          schema: {type: integer, minimum: 1}
+      responses:
+        '201':
+          description: Locações criadas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Rental'}
+
+  /api/v1/rentals/{rentalId}/return:
+    put:
+      tags: [Locações]
+      summary: Baixa/Devolução de fita
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: rewound
+          in: query
+          schema: {type: boolean, default: true}
+      responses:
+        '200':
+          description: Fita devolvida e multa calculada
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Rental'}
+
+  /api/v1/checkout/payment/{customerId}:
+    post:
+      tags: [Financeiro]
+      summary: Processar pagamento de pendências do cliente
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: amountPaid
+          in: query
+          required: true
+          schema: {type: number}
+      responses:
+        '200':
+          description: Pagamento processado e locações regularizadas
+
+  /api/v1/dashboard/most-rented:
+    get:
+      tags: [Dashboard]
+      summary: Ranking de filmes mais alugados
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
+      responses:
+        '200':
+          description: Lista de filmes e contagem
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    oneOf: [{type: string}, {type: integer}]
